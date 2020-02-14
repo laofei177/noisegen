@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import time
 from tqdm import tqdm
 
 
@@ -38,16 +37,15 @@ class NoiseGenerator:
         else:
             self.psd = psd
 
-        self.fft_power_filter = np.hstack([self.psd, np.flip(self.psd)[:-1]])
-
+        self.psd = np.hstack([self.psd, np.flip(self.psd)[:-1]])
         if normalization is not None:
-            self.fft_power_filter *= normalization / np.sum(self.fft_power_filter * self.f_interval)
+            self.psd *= normalization / (np.sum(self.psd) * self.f_interval)
 
-        self.fft_power_filter *= self.f_interval * self.n_fft_frequencies ** 2
+        self.fft_power_filter = self.psd * self.f_interval * self.n_fft_frequencies ** 2
 
         self.fft_amplitude_filter = np.sqrt(self.fft_power_filter)
 
-        self.psd = pd.Series(self.psd, index=self.positive_frequencies)
+        self.psd = pd.Series(self.psd, index=self.fft_frequencies)
         self.fft_amplitude_filter = pd.Series(self.fft_amplitude_filter, index=self.fft_frequencies)
         self.fft_power_filter = pd.Series(self.fft_power_filter, index=self.fft_frequencies)
         self.fft_power_filter.sort_index(inplace=True)
@@ -88,9 +86,10 @@ class NoiseGenerator:
 
     def measure_psd(self):
         self.mean_square_fft_coeffs = (self.fft_coeffs.abs() ** 2).mean(axis=1).values
-        self.measured_psd = np.copy(self.mean_square_fft_coeffs[:self.n_frequencies])
-        self.measured_psd /= (self.f_interval * self.n_fft_frequencies ** 2)
-        self.measured_psd = pd.Series(self.measured_psd, index=self.positive_frequencies)
+        self.measured_psd = np.copy(self.mean_square_fft_coeffs)
+        self.measured_psd /= (self.n_fft_frequencies ** 2)*self.f_interval
+        self.measured_psd = pd.Series(self.measured_psd, index=self.fft_frequencies)
+        self.measured_psd.sort_index(inplace=True)
         self.mean_square_fft_coeffs = pd.Series(self.mean_square_fft_coeffs, index=self.fft_frequencies)
         self.mean_square_fft_coeffs.sort_index(inplace=True)
 
@@ -99,8 +98,8 @@ class NoiseGenerator:
             fig, ax = plt.subplots(1, 1, figsize=(8, 5))
         if self.measured_psd is None:
             self.measure_psd()
-        self.psd.plot(ax=ax, **kwargs)
         self.measured_psd.plot(ax=ax, **kwargs)
+        self.psd.plot(ax=ax, **kwargs)
         return ax
 
     def plot_fft_filter(self, ax=None, **kwargs):
