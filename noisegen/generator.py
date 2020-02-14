@@ -46,6 +46,7 @@ class NoiseGenerator:
         self.fft_amplitude_filter = np.sqrt(self.fft_power_filter)
 
         self.psd = pd.Series(self.psd, index=self.fft_frequencies)
+        self.psd.sort_index(inplace=True)
         self.fft_amplitude_filter = pd.Series(self.fft_amplitude_filter, index=self.fft_frequencies)
         self.fft_power_filter = pd.Series(self.fft_power_filter, index=self.fft_frequencies)
         self.fft_power_filter.sort_index(inplace=True)
