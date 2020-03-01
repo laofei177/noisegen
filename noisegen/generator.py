@@ -25,14 +25,20 @@ class NoiseGenerator:
         self.fft_power_filter = None
         self.fft_amplitude_filter = None
 
-    def specify_psd(self, psd='white', f_ir=None, normalization=None):
+    def specify_psd(self, psd='white', f_ir=None, normalization=None, A=None):
+
+        assert not ((normalization is not None) and (A is not None))
+
+        if A is None:
+            A = 1
+
         if psd is 'white':
-            self.psd = np.ones(self.n_frequencies)
+            self.psd = A*np.ones(self.n_frequencies)
         elif psd is 'pink':
             assert f_ir is not None
             cutoff_idx = np.sum(self.positive_frequencies < f_ir)
             self.psd = np.zeros(self.n_frequencies)
-            self.psd[cutoff_idx:] = 1 / self.positive_frequencies[cutoff_idx:]
+            self.psd[cutoff_idx:] = A / self.positive_frequencies[cutoff_idx:]
             self.psd[:cutoff_idx] = self.psd[cutoff_idx]
         else:
             self.psd = psd
