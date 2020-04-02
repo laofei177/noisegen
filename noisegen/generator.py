@@ -33,7 +33,7 @@ class NoiseGenerator:
             A = 1
 
         if psd is 'white':
-            self.psd = A * np.ones(self.n_frequencies)
+            self.psd = A*np.ones(self.n_frequencies)
         elif psd is 'pink':
             assert f_ir is not None
             cutoff_idx = np.sum(self.positive_frequencies < f_ir)
