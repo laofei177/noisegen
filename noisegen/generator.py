@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from multiprocessing import Pool
 
 
 class NoiseGenerator:
@@ -32,9 +33,9 @@ class NoiseGenerator:
         if A is None:
             A = 1
 
-        if psd is 'white':
+        if psd == 'white':
             self.psd = A*np.ones(self.n_frequencies)
-        elif psd is 'pink':
+        elif psd == 'pink':
             assert f_ir is not None
             cutoff_idx = np.sum(self.positive_frequencies < f_ir)
             self.psd = np.zeros(self.n_frequencies)
@@ -85,6 +86,31 @@ class NoiseGenerator:
         self.samples.index.name = 'time'
         self.samples.columns.name = 'sample'
 
+    def generate_trace_truncated(self, seed=None, n_traces=1, cutoff_time=None):
+
+        np.random.seed(seed)
+
+        if cutoff_time is not None:
+            n_times_retained = np.sum(self.sample_times<cutoff_time)
+        else:
+            n_times_retained = self.n_times
+        signal_array = np.zeros([n_times_retained, n_traces], dtype=float)
+
+        for i in tqdm(range(n_traces)):
+
+            fft_coeffs = np.random.randn(self.n_frequencies - 1) + 1j * np.random.randn(self.n_frequencies - 1)
+            fft_coeffs /= np.sqrt(2)
+            fft_coeffs = np.hstack([fft_coeffs, np.conjugate(np.flip(fft_coeffs))])
+            fft_coeffs = np.hstack([np.random.randn(), fft_coeffs])
+            fft_coeffs *= self.fft_amplitude_filter.values
+
+            signal = np.fft.ifft(fft_coeffs).real
+            signal_array[:, i] = signal[:n_times_retained]
+
+        self.samples = pd.DataFrame(signal_array, index=self.sample_times[:n_times_retained], columns=np.arange(n_traces))
+        self.samples.index.name = 'time'
+        self.samples.columns.name = 'sample'
+
     def calc_autocorrelation(self, t_idx=0):
         self.autocorrelation = self.samples.copy()
         self.autocorrelation *= self.autocorrelation.iloc[t_idx, :]
@@ -127,3 +153,28 @@ class NoiseGenerator:
         self.autocorrelation.index = self.autocorrelation.index - self.t_end / 2
         self.autocorrelation.plot(ax=ax, **kwargs)
         return ax
+
+    def test(self, seed=None, n_traces=1, cutoff_time=None):
+        indices = list(range(n_traces))
+        if cutoff_time is not None:
+            self.n_times_retained = np.sum(self.sample_times<cutoff_time)
+        else:
+            self.n_times_retained = self.n_times
+        self.signal_array = np.zeros([self.n_times_retained, n_traces], dtype=float)
+        with Pool(1) as p:
+            out = p.map(self.task_generate_trace_truncated, indices)
+        self.signal_array = np.array(out)
+        #print('done')
+
+
+    def task_generate_trace_truncated(self, idx):
+
+        fft_coeffs = np.random.randn(self.n_frequencies - 1) + 1j * np.random.randn(self.n_frequencies - 1)
+        fft_coeffs /= np.sqrt(2)
+        fft_coeffs = np.hstack([fft_coeffs, np.conjugate(np.flip(fft_coeffs))])
+        fft_coeffs = np.hstack([np.random.randn(), fft_coeffs])
+        fft_coeffs *= self.fft_amplitude_filter.values
+
+        signal = np.fft.ifft(fft_coeffs).real
+        return signal
+        #self.signal_array[:, idx] = signal[:self.n_times_retained]
