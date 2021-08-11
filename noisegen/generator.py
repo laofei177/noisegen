@@ -35,16 +35,20 @@ class NoiseGenerator:
 
         if psd == 'white':
             self.psd = A*np.ones(self.n_frequencies)
+            self.psd = np.hstack([self.psd, np.flip(self.psd)[:-1]])
         elif psd == 'pink':
             assert f_ir is not None
             cutoff_idx = np.sum(self.positive_frequencies < f_ir)
             self.psd = np.zeros(self.n_frequencies)
             self.psd[cutoff_idx:] = A / self.positive_frequencies[cutoff_idx:]
             self.psd[:cutoff_idx] = self.psd[cutoff_idx]
+            self.psd = np.hstack([self.psd, np.flip(self.psd)[:-1]])
         else:
             self.psd = psd
 
-        self.psd = np.hstack([self.psd, np.flip(self.psd)[:-1]])
+        self.psd = pd.Series(self.psd, index=self.fft_frequencies)
+        self.psd.sort_index(inplace=True)
+
         if normalization is not None:
             self.psd *= normalization / (np.sum(self.psd) * self.f_interval)
 
@@ -52,8 +56,6 @@ class NoiseGenerator:
 
         self.fft_amplitude_filter = np.sqrt(self.fft_power_filter)
 
-        self.psd = pd.Series(self.psd, index=self.fft_frequencies)
-        self.psd.sort_index(inplace=True)
         self.fft_amplitude_filter = pd.Series(self.fft_amplitude_filter, index=self.fft_frequencies)
         self.fft_power_filter = pd.Series(self.fft_power_filter, index=self.fft_frequencies)
         self.fft_power_filter.sort_index(inplace=True)
